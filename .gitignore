@@ -1,0 +1,35 @@
+# Environment files
+.env
+*.env.local
+
+# Logs
+*.log
+deploy.log
+
+# Build artifacts
+*.pyc
+__pycache__/
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# Node modules (for electron)
+node_modules/
+
+# Electron build
+electron/dist/
+electron/out/
