@@ -17,9 +17,26 @@ const os = require('os');
 class SilentInstaller {
   constructor(onProgress) {
     this.onProgress = onProgress || (() => {});
+    this.platform = process.platform; // 'darwin', 'linux', 'win32'
+    this.initialized = false;
+    
+    // These will be set when init() is called (after app is ready)
+    this.appPath = null;
+    this.userDataPath = null;
+    this.bundledPath = null;
+    this.localPodmanPath = null;
+    this.podmanBin = 'podman';
+    this.imageTarPath = null;
+    this.imageName = 'localhost/avyaktha-mt5:eightcap-arm64';
+    this.stateFile = null;
+  }
+
+  // Initialize paths - must be called after app is ready
+  init() {
+    if (this.initialized) return;
+    
     this.appPath = app.getAppPath();
     this.userDataPath = app.getPath('userData');
-    this.platform = process.platform; // 'darwin', 'linux', 'win32'
     
     // Paths for bundled resources
     this.bundledPath = app.isPackaged 
@@ -32,10 +49,11 @@ class SilentInstaller {
     
     // Container image
     this.imageTarPath = path.join(this.bundledPath, 'mt5-server.tar');
-    this.imageName = 'localhost/avyaktha-mt5:eightcap-arm64';
     
     // Installation state
     this.stateFile = path.join(this.userDataPath, 'install-state.json');
+    
+    this.initialized = true;
   }
 
   getPodmanBinPath() {
@@ -53,6 +71,7 @@ class SilentInstaller {
 
   // Check if already installed
   isInstalled() {
+    this.init(); // Ensure initialized
     try {
       const state = JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
       return state.installed === true && state.imageLoaded === true;
@@ -78,6 +97,7 @@ class SilentInstaller {
 
   // Main installation flow
   async install() {
+    this.init(); // Ensure initialized
     if (this.isInstalled()) {
       this.onProgress({ step: 'complete', message: 'Already installed', progress: 100 });
       return true;
@@ -117,8 +137,8 @@ class SilentInstaller {
   async setupPodman() {
     // First check if system podman exists
     if (await this.checkSystemPodman()) {
-      this.podmanBin = 'podman';
-      this.saveState({ podmanSource: 'system' });
+      this.podmanBin = this.systemPodmanPath;
+      this.saveState({ podmanSource: 'system', podmanPath: this.systemPodmanPath });
       return;
     }
 
@@ -133,13 +153,27 @@ class SilentInstaller {
     this.saveState({ podmanSource: 'bundled' });
   }
 
-  // Check if system has podman installed
-  checkSystemPodman() {
-    return new Promise((resolve) => {
-      exec('podman --version', (error) => {
-        resolve(!error);
-      });
-    });
+  // Check if system has podman installed and get its path
+  async checkSystemPodman() {
+    // Common podman locations on macOS
+    const podmanPaths = [
+      '/opt/homebrew/bin/podman',      // Homebrew ARM64
+      '/usr/local/bin/podman',          // Homebrew Intel
+      '/opt/podman/bin/podman',         // Podman Desktop
+      '/usr/bin/podman',                // Linux
+      'podman'                          // In PATH
+    ];
+
+    for (const podmanPath of podmanPaths) {
+      try {
+        await this.runCommand(`${podmanPath} --version`);
+        this.systemPodmanPath = podmanPath;
+        return true;
+      } catch {
+        continue;
+      }
+    }
+    return false;
   }
 
   // Extract bundled Podman
@@ -245,7 +279,30 @@ class SilentInstaller {
 
   // Get the podman binary path to use
   getPodmanPath() {
-    return this.podmanBin;
+    this.init(); // Ensure initialized
+    
+    // Check state for saved podman path
+    const state = this.getState();
+    if (state.podmanPath) {
+      return state.podmanPath;
+    }
+    
+    // Check if bundled podman exists
+    if (fs.existsSync(this.podmanBin)) {
+      return this.podmanBin;
+    }
+    
+    // Fallback: try common locations
+    const commonPaths = [
+      '/opt/homebrew/bin/podman',
+      '/usr/local/bin/podman',
+      '/opt/podman/bin/podman'
+    ];
+    for (const p of commonPaths) {
+      if (fs.existsSync(p)) return p;
+    }
+    
+    return 'podman';
   }
 }
 

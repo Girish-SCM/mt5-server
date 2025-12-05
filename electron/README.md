@@ -20,11 +20,11 @@ One-click desktop application for MT5 Server. **No user intervention required** 
 ## User Experience
 
 ```
-User downloads: MT5-Server-Setup.dmg (2.5GB)
+User downloads: MT5-Server-1.0.0-arm64.dmg (~5.5GB)
                         ↓
         Double-click to install
                         ↓
-    [Installing...] progress window
+    [Starting MT5 Server...] progress window
                         ↓
       MT5 Terminal ready to use!
 ```
@@ -63,23 +63,20 @@ npm run build:win
 ```
 
 This creates `bundled/` directory with:
-- `mt5-server.tar` - Pre-exported container image (~2GB)
-- `podman-darwin.tar.gz` - (Optional) Bundled Podman for offline install
+- `mt5-server.tar` - Pre-exported container image (~5.3GB)
 
 ### Step 2: Build Installer
 
 ```bash
-# macOS
+# macOS (ARM64 + x64)
 npm run build:mac
-# Output: dist/MT5 Server-1.0.0-arm64.dmg (~2.5GB)
+# Output: dist/MT5 Server-1.0.0-arm64.dmg (~5.5GB)
 
-# Linux
+# Linux (coming soon)
 npm run build:linux
-# Output: dist/MT5 Server-1.0.0.AppImage (~2.5GB)
 
-# Windows
+# Windows (coming soon)
 npm run build:win
-# Output: dist/MT5 Server Setup 1.0.0.exe (~2.5GB)
 ```
 
 ## Configuration
@@ -122,4 +119,11 @@ electron/
 - **Start/Stop Server** - Toggle container
 - **Restart Server** - Restart container
 - **View Logs** - Show container logs
-- **Quit** - Exit app (container keeps running)
+- **Quit** - Exit app and stop container
+
+## Notes
+
+- First launch takes time due to large bundle size (~5.5GB)
+- Container is stopped automatically when app quits
+- Podman must be installed on the system
+- Tested on macOS ARM64 (Apple Silicon)

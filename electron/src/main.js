@@ -2,7 +2,9 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, ipcMain } = 
 const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const SilentInstaller = require('./installer');
+
+// Defer installer require until needed
+let SilentInstaller = null;
 
 // App state
 let mainWindow = null;
@@ -11,6 +13,7 @@ let containerProcess = null;
 let isContainerRunning = false;
 let installer = null;
 let podmanBin = 'podman'; // Will be set by installer
+let appReady = false; // Flag to track if app is fully initialized
 
 // Configuration
 const CONFIG = {
@@ -187,8 +190,16 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: 'Quit MT5 Server',
       click: () => {
+        // Force quit without dialog from tray
+        app.isQuitting = true;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.destroy();
+        }
+        if (tray) {
+          tray.destroy();
+        }
         app.quit();
       }
     }
@@ -223,9 +234,12 @@ function createWindow() {
   });
 
   mainWindow.on('close', (event) => {
-    // Hide instead of close
-    event.preventDefault();
-    mainWindow.hide();
+    // Force quit - destroy window and exit
+    app.isQuitting = true;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.destroy();
+    }
+    app.quit();
   });
 
   mainWindow.on('closed', () => {
@@ -235,24 +249,36 @@ function createWindow() {
 
 // Create tray icon
 function createTray() {
-  // Create a simple tray icon (you can replace with actual icon)
-  const iconPath = path.join(__dirname, '..', 'assets', 'tray-icon.png');
+  // Try multiple paths for icon (dev vs packaged)
+  const possiblePaths = [
+    path.join(__dirname, '..', 'assets', 'tray-icon.png'),
+    path.join(app.getAppPath(), 'assets', 'tray-icon.png'),
+    path.join(process.resourcesPath || '', 'app', 'assets', 'tray-icon.png')
+  ];
   
-  let icon;
-  if (fs.existsSync(iconPath)) {
-    icon = nativeImage.createFromPath(iconPath);
-  } else {
-    // Create a simple colored icon if no file exists
-    icon = nativeImage.createEmpty();
+  let icon = nativeImage.createEmpty();
+  
+  for (const iconPath of possiblePaths) {
+    if (fs.existsSync(iconPath)) {
+      icon = nativeImage.createFromPath(iconPath);
+      icon = icon.resize({ width: 16, height: 16 });
+      console.log('Tray icon loaded from:', iconPath);
+      break;
+    }
   }
-
+  
   tray = new Tray(icon);
   tray.setToolTip('MT5 Server');
   
   tray.on('click', () => {
-    if (mainWindow) {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-    } else {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    } else if (app.isReady()) {
       createWindow();
     }
   });
@@ -264,10 +290,12 @@ function createTray() {
 function createInstallWindow() {
   const installWindow = new BrowserWindow({
     width: 500,
-    height: 350,
-    frame: false,
+    height: 400,
+    frame: true,
     resizable: false,
     center: true,
+    title: 'MT5 Server - Setup',
+    show: true, // Show immediately
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -275,11 +303,18 @@ function createInstallWindow() {
   });
 
   installWindow.loadFile(path.join(__dirname, 'install.html'));
+  installWindow.focus(); // Bring to front
   return installWindow;
 }
 
 // App ready
 app.whenReady().then(async () => {
+  // Show startup window immediately to avoid dock bouncing
+  mainWindow = createInstallWindow();
+  
+  // Now load installer module (deferred to speed up window display)
+  SilentInstaller = require('./installer');
+  
   // Initialize installer
   installer = new SilentInstaller((progress) => {
     console.log(`[Install] ${progress.step}: ${progress.message} (${progress.progress}%)`);
@@ -291,18 +326,15 @@ app.whenReady().then(async () => {
 
   // Check if first run / needs installation
   if (!installer.isInstalled()) {
-    // Show installation window
-    mainWindow = createInstallWindow();
-    
     try {
-      // Run silent installation
+      // Run silent installation (window already showing)
       await installer.install();
       
       // Installation complete - update podman path
       podmanBin = installer.getPodmanPath();
       
       // Close install window and show main app
-      mainWindow.close();
+      mainWindow.destroy();
       mainWindow = null;
       
     } catch (error) {
@@ -313,44 +345,72 @@ app.whenReady().then(async () => {
       return;
     }
   } else {
-    // Already installed - get podman path
+    // Already installed - show startup progress
     podmanBin = installer.getPodmanPath();
+    
+    // Send startup status
+    const sendStatus = (step, message, progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('install-progress', { step, message, progress });
+      }
+    };
+    
+    sendStatus('verify', 'Checking container status...', 20);
+    await checkContainerStatus();
+    
+    if (!isContainerRunning) {
+      sendStatus('machine', 'Starting MT5 container...', 40);
+      await startContainer();
+      sendStatus('image', 'Waiting for MT5 Terminal...', 70);
+      // Wait for MT5 to initialize
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+    
+    // Re-check container status
+    await checkContainerStatus();
+    
+    sendStatus('complete', 'Opening MT5 Terminal...', 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Close startup window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.destroy();
+      mainWindow = null;
+    }
   }
 
-  // Check container status
-  await checkContainerStatus();
-  
   // Create tray
   createTray();
   
-  // Create main window
-  createWindow();
+  // Create main window - isContainerRunning should be true now
+  createWindow();  
+  
+  // App is now fully ready
+  appReady = true;
+});
 
-  // Auto-start container if not running
-  if (!isContainerRunning) {
-    await startContainer();
-    // Reload window with noVNC after container starts
-    if (mainWindow && isContainerRunning) {
-      setTimeout(() => {
-        mainWindow.loadURL(`http://localhost:${CONFIG.ports.novnc}/vnc.html?autoconnect=true&password=${CONFIG.vncPassword}`);
-      }, 8000); // Wait for MT5 to initialize
-    }
+// Quit when all windows are closed (only after app is ready)
+app.on('window-all-closed', () => {
+  if (appReady) {
+    app.quit();
   }
 });
 
-// Prevent app from closing when all windows are closed
-app.on('window-all-closed', (event) => {
-  // Keep running in tray
-});
-
-// Cleanup on quit
-app.on('before-quit', async () => {
-  // Optionally stop container on quit
-  // await stopContainer();
+// Cleanup on quit - stop container
+app.on('before-quit', () => {
+  app.isQuitting = true;
+  
+  // Stop container when quitting (fire and forget)
+  if (isContainerRunning && podmanBin) {
+    const { exec } = require('child_process');
+    exec(`${podmanBin} stop ${CONFIG.containerName}`, (err) => {
+      if (err) console.log('Container stop:', err.message);
+    });
+  }
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  if (app.isReady() && BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
