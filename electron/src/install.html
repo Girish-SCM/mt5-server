@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Installing MT5 Server</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #ffffff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      -webkit-app-region: drag;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #8892b0;
+      font-size: 0.9rem;
+      margin-bottom: 30px;
+    }
+
+    .progress-container {
+      width: 100%;
+      max-width: 350px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e94560, #ff6b6b);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .status {
+      color: #8892b0;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .steps {
+      margin-top: 30px;
+      width: 100%;
+      max-width: 350px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      color: #8892b0;
+      font-size: 0.85rem;
+    }
+
+    .step.active {
+      color: #ffffff;
+    }
+
+    .step.done {
+      color: #64ffda;
+    }
+
+    .step-icon {
+      width: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">MT5</div>
+  <h1>Installing MT5 Server</h1>
+  <p class="subtitle">This may take a few minutes on first run</p>
+
+  <div class="progress-container">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="status">
+      <span class="spinner"></span>
+      <span id="statusText">Initializing...</span>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step" id="step-podman">
+      <span class="step-icon">○</span>
+      <span>Setting up container runtime</span>
+    </div>
+    <div class="step" id="step-machine">
+      <span class="step-icon">○</span>
+      <span>Initializing Podman machine</span>
+    </div>
+    <div class="step" id="step-image">
+      <span class="step-icon">○</span>
+      <span>Loading MT5 container image</span>
+    </div>
+    <div class="step" id="step-verify">
+      <span class="step-icon">○</span>
+      <span>Verifying installation</span>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const progressFill = document.getElementById('progressFill');
+    const statusText = document.getElementById('statusText');
+    const steps = {
+      podman: document.getElementById('step-podman'),
+      machine: document.getElementById('step-machine'),
+      image: document.getElementById('step-image'),
+      verify: document.getElementById('step-verify')
+    };
+
+    // Mark step as active
+    function setStepActive(stepName) {
+      Object.values(steps).forEach(el => el.classList.remove('active'));
+      if (steps[stepName]) {
+        steps[stepName].classList.add('active');
+        steps[stepName].querySelector('.step-icon').textContent = '●';
+      }
+    }
+
+    // Mark step as done
+    function setStepDone(stepName) {
+      if (steps[stepName]) {
+        steps[stepName].classList.remove('active');
+        steps[stepName].classList.add('done');
+        steps[stepName].querySelector('.step-icon').textContent = '✓';
+      }
+    }
+
+    // Listen for progress updates
+    ipcRenderer.on('install-progress', (event, progress) => {
+      progressFill.style.width = `${progress.progress}%`;
+      statusText.textContent = progress.message;
+
+      // Update step indicators
+      if (progress.step === 'podman') {
+        setStepActive('podman');
+      } else if (progress.step === 'machine') {
+        setStepDone('podman');
+        setStepActive('machine');
+      } else if (progress.step === 'image') {
+        setStepDone('podman');
+        setStepDone('machine');
+        setStepActive('image');
+      } else if (progress.step === 'verify') {
+        setStepDone('podman');
+        setStepDone('machine');
+        setStepDone('image');
+        setStepActive('verify');
+      } else if (progress.step === 'complete') {
+        setStepDone('podman');
+        setStepDone('machine');
+        setStepDone('image');
+        setStepDone('verify');
+      }
+    });
+  </script>
+</body>
+</html>

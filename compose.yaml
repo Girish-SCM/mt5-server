@@ -3,7 +3,7 @@
 
 services:
   mt5-server:
-    image: docker.io/girishgkg/avyaktha-mt5:arm64
+    image: localhost/avyaktha-mt5:eightcap-arm64
     container_name: mt5-server
     environment:
       - MT5_HOST=0.0.0.0
