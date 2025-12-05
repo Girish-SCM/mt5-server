@@ -20,10 +20,17 @@ let installer = null;
 let podmanBin = 'podman'; // Will be set by installer
 let appReady = false; // Flag to track if app is fully initialized
 
+// Detect architecture for container image
+function getArchSuffix() {
+  const arch = process.arch;
+  if (arch === 'arm64') return 'arm64';
+  return 'x86'; // x64, ia32, etc. all use x86 image
+}
+
 // Configuration
 const CONFIG = {
   containerName: 'mt5-server',
-  imageName: 'localhost/avyaktha-mt5:eightcap-arm64',
+  imageName: `localhost/avyaktha-mt5:eightcap-${getArchSuffix()}`,
   ports: {
     vnc: 5901,
     novnc: 6081,
