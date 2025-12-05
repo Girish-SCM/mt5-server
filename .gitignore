@@ -33,3 +33,8 @@ node_modules/
 # Electron build
 electron/dist/
 electron/out/
+
+# Bundled large files (container images, podman)
+electron/bundled/*.tar
+electron/bundled/*.tar.gz
+electron/bundled/podman-*

@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
-# MT5 ARM64 Container Build Script
-# Build script for local MT5 Docker image using Hangover on ARM64
-# Usage: ./build_local.sh [broker] [clean]
-# Example: ./build_local.sh eightcap clean
+# MT5 Container Build Script
+# Build script for local MT5 Docker image
+# Supports both ARM64 (Apple Silicon) and x86_64 architectures
+# Usage: ./build_local.sh [broker] [arch] [clean]
+# Example: ./build_local.sh eightcap arm64 clean
 
 set -e
 
 # Default values
 BROKER="${1:-eightcap}"
-CLEAN_BUILD="${2}"
+TARGET_ARCH="${2:-auto}"
+CLEAN_BUILD="${3}"
+
+# Auto-detect architecture if not specified
+if [ "$TARGET_ARCH" = "auto" ]; then
+    MACHINE_ARCH=$(uname -m)
+    if [ "$MACHINE_ARCH" = "arm64" ] || [ "$MACHINE_ARCH" = "aarch64" ]; then
+        TARGET_ARCH="arm64"
+    else
+        TARGET_ARCH="x86"
+    fi
+fi
 
 # Color codes for output
 RED='\033[0;31m'
@@ -47,7 +59,7 @@ print_error() {
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [broker] [clean]"
+    echo "Usage: $0 [broker] [arch] [clean]"
     echo ""
     echo "Brokers:"
     echo "  eightcap    - Eightcap Global MT5 (default)"
@@ -55,13 +67,19 @@ show_usage() {
     echo "  exness      - Exness MT5"
     echo "  xm          - XM MT5"
     echo ""
+    echo "Architecture:"
+    echo "  auto        - Auto-detect (default)"
+    echo "  arm64       - ARM64 (Apple Silicon, uses Hangover)"
+    echo "  x86         - x86_64 (Intel/AMD, uses standard Wine)"
+    echo ""
     echo "Options:"
     echo "  clean       - Clean all containers and images before build"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Build with Eightcap (default)"
-    echo "  $0 eightcap          # Build with Eightcap"
-    echo "  $0 metaquotes clean  # Clean environment and build with MetaQuotes"
+    echo "  $0                         # Build with Eightcap, auto-detect arch"
+    echo "  $0 eightcap arm64          # Build ARM64 with Eightcap"
+    echo "  $0 eightcap x86            # Build x86 with Eightcap"
+    echo "  $0 metaquotes x86 clean    # Clean and build x86 with MetaQuotes"
     echo ""
 }
 
@@ -73,22 +91,26 @@ if [ -z "$MT5_URL" ]; then
     show_usage
     exit 1
 fi
-IMAGE_TAG="localhost/avyaktha-mt5:${BROKER}-arm64"
+IMAGE_TAG="localhost/avyaktha-mt5:${BROKER}-${TARGET_ARCH}"
 
-print_status "🔨 Building MT5 Docker image for ARM64 (Apple Silicon)"
-print_status "   Using Hangover (Wine for ARM64)"
+# Set Dockerfile and platform based on architecture
+if [ "$TARGET_ARCH" = "arm64" ]; then
+    DOCKERFILE="Dockerfile.arm64"
+    PLATFORM="linux/arm64"
+    WINE_TYPE="Hangover (Wine for ARM64)"
+else
+    DOCKERFILE="Dockerfile.x86"
+    PLATFORM="linux/amd64"
+    WINE_TYPE="Standard Wine"
+fi
+
+print_status "🔨 Building MT5 Docker image"
+print_status "   Architecture: ${TARGET_ARCH}"
+print_status "   Using: ${WINE_TYPE}"
 print_status "   Broker: ${BROKER}"
 print_status "   Tag: ${IMAGE_TAG}"
 print_status "   MT5 URL: ${MT5_URL}"
 echo ""
-
-# Check if running on ARM64
-ARCH=$(uname -m)
-if [ "$ARCH" != "arm64" ] && [ "$ARCH" != "aarch64" ]; then
-    print_warning "You are building on $ARCH architecture"
-    print_warning "This image is optimized for ARM64 (Apple Silicon)"
-    echo ""
-fi
 
 # Clean environment if requested
 if [ "$CLEAN_BUILD" = "clean" ]; then
@@ -121,9 +143,9 @@ if [ "$CLEAN_BUILD" = "clean" ]; then
 fi
 
 # Check if Dockerfile exists
-if [ ! -f "Dockerfile" ]; then
-    print_error "Dockerfile not found in current directory"
-    print_error "Please run this script from the mt5docker.arm64 directory"
+if [ ! -f "$DOCKERFILE" ]; then
+    print_error "$DOCKERFILE not found in current directory"
+    print_error "Please run this script from the docker directory"
     exit 1
 fi
 
@@ -132,10 +154,10 @@ print_status "🚀 Starting build process..."
 echo ""
 
 podman build \
-    -f Dockerfile \
+    -f "${DOCKERFILE}" \
     -t "${IMAGE_TAG}" \
     --build-arg MT5_DOWNLOAD_URL="${MT5_URL}" \
-    --platform linux/arm64 \
+    --platform "${PLATFORM}" \
     .
 
 echo ""
@@ -147,8 +169,9 @@ print_status "📦 Image details:"
 podman images "${IMAGE_TAG}"
 
 echo ""
+CONTAINER_NAME="mt5-test-${TARGET_ARCH}"
 print_status "🧪 To test the image:"
-echo "  podman run -d --name mt5-test-arm64 \\"
+echo "  podman run -d --name ${CONTAINER_NAME} \\"
 echo "    -p 5901:5901 \\"
 echo "    -p 6081:6081 \\"
 echo "    -p 8001:8001 \\"
@@ -158,7 +181,7 @@ echo "    ${IMAGE_TAG}"
 echo ""
 
 print_status "📊 Monitor container:"
-echo "  podman logs -f mt5-test-arm64"
+echo "  podman logs -f ${CONTAINER_NAME}"
 echo ""
 
 print_status "🌐 Access methods:"
@@ -168,13 +191,13 @@ echo "  RPC API: localhost:8001"
 echo ""
 
 print_status "🧹 Clean up test:"
-echo "  podman stop mt5-test-arm64 && podman rm mt5-test-arm64"
+echo "  podman stop ${CONTAINER_NAME} && podman rm ${CONTAINER_NAME}"
 echo ""
 
 print_success "💡 Build completed successfully!"
 print_status "   Image: ${IMAGE_TAG}"
 print_status "   Broker: ${BROKER}"
-print_status "   Architecture: ARM64 optimized"
+print_status "   Architecture: ${TARGET_ARCH}"
 
 echo ""
 print_status "🔍 Next steps:"

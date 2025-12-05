@@ -1,36 +1,73 @@
-# MT5 Docker for ARM64 (Apple Silicon)
+# MT5 Docker Images
 
-This is an ARM64-compatible MT5 Docker image using **Hangover** - a Wine alternative that runs Windows applications natively on ARM64 Linux without QEMU emulation.
+Docker images for running MetaTrader 5 on Linux, supporting both **ARM64** (Apple Silicon) and **x86_64** (Intel/AMD) architectures.
 
-## Why Hangover?
+## Architecture Support
 
-- ✅ Native ARM64 support (no QEMU emulation)
-- ✅ Better performance on Apple Silicon Macs
-- ✅ No Wine memory management crashes
-- ✅ Compatible with MT5 Windows applications
+| Architecture | Wine Implementation | Use Case |
+|--------------|---------------------|----------|
+| ARM64 | Hangover | Apple Silicon Macs |
+| x86_64 | Standard Wine | Intel/AMD machines, Cloud VMs |
 
-## Prerequisites
+## CI/CD - GitHub Actions
 
-1. **Podman** (or Docker) installed on your Mac:
+Images are automatically built via GitHub Actions when changes are pushed to `docker/` directory.
+
+### Manual Build Trigger
+
+Go to **Actions** → **Build MT5 Docker Images** → **Run workflow**:
+- Select broker (eightcap, metaquotes, exness, xm)
+- Select architecture (both, x86, arm64)
+
+### Pull Pre-built Images
+
+```bash
+# x86_64
+docker pull ghcr.io/girish-scm/mt5-server:eightcap-x86
+
+# ARM64
+docker pull ghcr.io/girish-scm/mt5-server:eightcap-arm64
+```
+
+## Local Build
+
+### Prerequisites
+
+1. **Podman** (or Docker) installed:
    ```bash
+   # macOS
    brew install podman
    podman machine init
    podman machine start
+   
+   # Linux
+   sudo apt install podman
    ```
 
-2. **MT5 Setup URL** - Get the download link for your broker's MT5 terminal
-
-## Building the Image
+### Build Commands
 
 ```bash
-cd deploy/avyaktha_deploy/mt5docker
+cd docker/
 
-# Build with your broker's MT5 setup URL
-./build-arm64.sh metaquotes-arm64 "https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe"
+# Auto-detect architecture
+./build_local.sh eightcap
 
-# Or for EightCap
-./build-arm64.sh eightcap-arm64 "https://download.mql5.com/cdn/web/eightcap.global.limited/mt5/eightcapglobal5setup.exe"
+# Explicitly build for ARM64
+./build_local.sh eightcap arm64
+
+# Explicitly build for x86
+./build_local.sh eightcap x86
+
+# Clean build
+./build_local.sh eightcap x86 clean
 ```
+
+### Supported Brokers
+
+- `eightcap` - Eightcap Global MT5 (default)
+- `metaquotes` - MetaQuotes MT5
+- `exness` - Exness MT5
+- `xm` - XM MT5
 
 ## Running the Container
 
