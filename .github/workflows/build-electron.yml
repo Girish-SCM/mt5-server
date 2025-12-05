@@ -105,7 +105,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' || github.event.inputs.platform == '' }}
     
     steps:
       - name: Checkout repository
@@ -144,7 +144,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' || github.event.inputs.platform == '' }}
     
     steps:
       - name: Checkout repository
