@@ -163,6 +163,9 @@ echo ""
 
 mkdir -p electron/bundled
 
+# Remove existing tar file (podman on Linux can't overwrite)
+rm -f electron/bundled/mt5-server.tar
+
 print_status "Saving image to electron/bundled/mt5-server.tar..."
 $CONTAINER_CMD save "$IMAGE_TAG" -o electron/bundled/mt5-server.tar
 
