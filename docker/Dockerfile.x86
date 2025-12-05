@@ -8,7 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     WINEPREFIX="/opt/wineprefix" \
     WINEARCH="win64" \
     WINEDEBUG="-all" \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    WINEDLLOVERRIDES="mscoree,mshtml="
 
 # MT5_DOWNLOAD_URL is REQUIRED for pre-installation
 ARG MT5_DOWNLOAD_URL
@@ -41,16 +42,10 @@ RUN dpkg --add-architecture i386 && \
 # Stage 2: Initialize Wine prefix and install Python
 RUN rm -f /tmp/.X99-lock && \
     Xvfb :99 -ac -screen 0 1024x768x24 & \
-    export DISPLAY=:99 && \
-    sleep 3 && \
-    # Initialize Wine prefix with proper display
-    echo "Initializing Wine prefix..." && \
-    wineboot --init 2>&1 && \
-    echo "Waiting for Wine initialization..." && \
-    sleep 30 && \
-    # Verify Wine is working
-    echo "Verifying Wine..." && \
-    wine --version && \
+    sleep 2 && \
+    # Initialize Wine prefix
+    wineboot --init && \
+    sleep 10 && \
     # Download and setup Python for Wine
     mkdir -p /opt/wineprefix/drive_c/Python39x64 && \
     wget -q https://www.python.org/ftp/python/3.9.13/python-3.9.13-embed-amd64.zip -O /tmp/python.zip && \
@@ -63,11 +58,9 @@ RUN rm -f /tmp/.X99-lock && \
     echo "Lib/site-packages" >> python39._pth && \
     sed -i 's/#import site/import site/' python39._pth && \
     # Install pip
-    echo "Installing pip..." && \
-    wine python.exe get-pip.py 2>&1 && \
+    wine python.exe get-pip.py && \
     # Install required Python packages
-    echo "Installing Python packages..." && \
-    wine python.exe -m pip install --no-cache-dir rpyc==6.0.2 MetaTrader5 2>&1 && \
+    wine python.exe -m pip install --no-cache-dir rpyc==6.0.2 MetaTrader5 && \
     # Cleanup
     rm -rf /tmp/* /root/.cache && \
     wineserver -k || true
@@ -81,20 +74,10 @@ RUN if [ -z "$MT5_DOWNLOAD_URL" ]; then \
     rm -f /tmp/.X98-lock && \
     Xvfb :98 -ac -screen 0 1024x768x24 & \
     export DISPLAY=:98 && \
-    sleep 3 && \
-    # Verify Wine is still working
-    echo "Verifying Wine before MT5 install..." && \
-    wine --version && \
-    # Install MT5 silently - wait longer for x86
-    echo "Installing MT5 (this takes a few minutes)..." && \
-    wine /mt5docker/mt5setup.exe /auto 2>&1 && \
-    echo "Waiting for MT5 installation to complete..." && \
-    sleep 120 && \
-    # Verify MT5 was installed
-    echo "Checking MT5 installation..." && \
-    find /opt/wineprefix/drive_c -name "terminal64.exe" -o -name "terminal.exe" | head -5 && \
-    MT5_CHECK=$(find /opt/wineprefix/drive_c -name "terminal64.exe" -o -name "terminal.exe" | head -1) && \
-    if [ -z "$MT5_CHECK" ]; then echo "WARNING: MT5 executable not found!"; fi && \
+    sleep 2 && \
+    # Install MT5 silently
+    wine /mt5docker/mt5setup.exe /auto && \
+    sleep 60 && \
     wineserver -k || true && \
     # Remove setup file to save space
     rm -f /mt5docker/mt5setup.exe && \
