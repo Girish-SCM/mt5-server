@@ -57,8 +57,7 @@
       "target": [
         "AppImage",
         "deb"
-      ],
-      "executableArgs": ["--no-sandbox"]
+      ]
     },
     "win": {
       "icon": "assets/icon.ico",
