@@ -13,6 +13,10 @@
 
 set -e
 
+# Get script directory (works even when called from another location)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # Default values
 PLATFORM="${1:-mac-arm64}"
 BROKER="${2:-eightcap}"
