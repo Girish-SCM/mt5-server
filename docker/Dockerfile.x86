@@ -74,9 +74,14 @@ RUN if [ -z "$MT5_DOWNLOAD_URL" ]; then \
     Xvfb :98 -ac -screen 0 1024x768x24 & \
     export DISPLAY=:98 && \
     sleep 2 && \
-    # Install MT5 silently
+    # Install MT5 silently - wait longer for x86
+    echo "Installing MT5 (this takes a few minutes)..." && \
     wine /mt5docker/mt5setup.exe /auto && \
-    sleep 60 && \
+    echo "Waiting for MT5 installation to complete..." && \
+    sleep 120 && \
+    # Verify MT5 was installed
+    echo "Checking MT5 installation..." && \
+    find /opt/wineprefix/drive_c -name "terminal64.exe" && \
     wineserver -k || true && \
     # Remove setup file to save space
     rm -f /mt5docker/mt5setup.exe && \
