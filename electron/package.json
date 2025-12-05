@@ -12,7 +12,11 @@
     "build:win": "electron-builder --win",
     "pack": "electron-builder --dir"
   },
-  "author": "Girish",
+  "author": {
+    "name": "Girish",
+    "email": "girish@avyaktha.com"
+  },
+  "homepage": "https://github.com/Girish-SCM/mt5-server",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
@@ -49,6 +53,7 @@
     "linux": {
       "category": "Finance",
       "icon": "assets/icon.png",
+      "maintainer": "Girish <girish@avyaktha.com>",
       "target": [
         "AppImage",
         "deb"
