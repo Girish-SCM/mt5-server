@@ -44,52 +44,13 @@ jobs:
         working-directory: electron
         run: npm ci
 
-      - name: Install Docker (macOS)
-        run: |
-          brew install --cask docker
-          # Start Docker
-          open /Applications/Docker.app
-          # Wait for Docker to start
-          echo "Waiting for Docker to start..."
-          for i in {1..30}; do
-            if docker info > /dev/null 2>&1; then
-              echo "Docker is ready!"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 5
-          done
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download container image from GHCR
+      - name: Create bundled directory
         working-directory: electron
         run: |
           mkdir -p bundled
-          echo "Pulling ARM64 container image from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:eightcap-arm64 || echo "Image not found, will build without bundled container"
-          if docker image inspect ghcr.io/${{ github.repository }}:eightcap-arm64 > /dev/null 2>&1; then
-            echo "Exporting container image..."
-            docker save ghcr.io/${{ github.repository }}:eightcap-arm64 -o bundled/mt5-server.tar
-            ls -lh bundled/
-          else
-            echo "WARNING: Container image not available, building Electron shell only"
-          fi
-
-      - name: Download Podman for macOS ARM64
-        working-directory: electron
-        run: |
-          mkdir -p bundled
-          echo "Downloading Podman installer for macOS..."
-          # Download Podman pkg installer
-          PODMAN_VERSION="5.2.2"
-          curl -L -o bundled/podman-installer.pkg "https://github.com/containers/podman/releases/download/v${PODMAN_VERSION}/podman-installer-macos-arm64.pkg" || echo "Podman download failed"
-          ls -lh bundled/
+          # Note: Container image will be pulled at runtime by the Electron app
+          # This keeps the installer size small (~100MB vs ~5GB)
+          echo "Electron app will pull container image at first run" > bundled/README.txt
 
       - name: Build Electron app (macOS ARM64)
         working-directory: electron
@@ -123,51 +84,11 @@ jobs:
         working-directory: electron
         run: npm ci
 
-      - name: Install Docker (macOS)
-        run: |
-          brew install --cask docker
-          # Start Docker
-          open /Applications/Docker.app
-          # Wait for Docker to start
-          echo "Waiting for Docker to start..."
-          for i in {1..30}; do
-            if docker info > /dev/null 2>&1; then
-              echo "Docker is ready!"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 5
-          done
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download container image from GHCR
+      - name: Create bundled directory
         working-directory: electron
         run: |
           mkdir -p bundled
-          echo "Pulling x86 container image from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:eightcap-x86 || echo "Image not found, will build without bundled container"
-          if docker image inspect ghcr.io/${{ github.repository }}:eightcap-x86 > /dev/null 2>&1; then
-            echo "Exporting container image..."
-            docker save ghcr.io/${{ github.repository }}:eightcap-x86 -o bundled/mt5-server.tar
-            ls -lh bundled/
-          else
-            echo "WARNING: Container image not available, building Electron shell only"
-          fi
-
-      - name: Download Podman for macOS x64
-        working-directory: electron
-        run: |
-          mkdir -p bundled
-          echo "Downloading Podman installer for macOS..."
-          PODMAN_VERSION="5.2.2"
-          curl -L -o bundled/podman-installer.pkg "https://github.com/containers/podman/releases/download/v${PODMAN_VERSION}/podman-installer-macos-amd64.pkg" || echo "Podman download failed"
-          ls -lh bundled/
+          echo "Electron app will pull container image at first run" > bundled/README.txt
 
       - name: Build Electron app (macOS x64)
         working-directory: electron
@@ -203,25 +124,12 @@ jobs:
         working-directory: electron
         run: npm ci
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download container image from GHCR
+      - name: Create bundled directory
         working-directory: electron
         shell: bash
         run: |
           mkdir -p bundled
-          echo "Pulling x86 container image from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:eightcap-x86 || echo "Image not found"
-          if docker image inspect ghcr.io/${{ github.repository }}:eightcap-x86 > /dev/null 2>&1; then
-            echo "Exporting container image..."
-            docker save ghcr.io/${{ github.repository }}:eightcap-x86 -o bundled/mt5-server.tar
-            ls -lh bundled/
-          fi
+          echo "Electron app will pull container image at first run" > bundled/README.txt
 
       - name: Build Electron app (Windows)
         working-directory: electron
@@ -255,24 +163,11 @@ jobs:
         working-directory: electron
         run: npm ci
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download container image from GHCR
+      - name: Create bundled directory
         working-directory: electron
         run: |
           mkdir -p bundled
-          echo "Pulling x86 container image from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:eightcap-x86 || echo "Image not found"
-          if docker image inspect ghcr.io/${{ github.repository }}:eightcap-x86 > /dev/null 2>&1; then
-            echo "Exporting container image..."
-            docker save ghcr.io/${{ github.repository }}:eightcap-x86 -o bundled/mt5-server.tar
-            ls -lh bundled/
-          fi
+          echo "Electron app will pull container image at first run" > bundled/README.txt
 
       - name: Build Electron app (Linux)
         working-directory: electron
