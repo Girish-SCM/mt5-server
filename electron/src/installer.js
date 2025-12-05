@@ -155,8 +155,12 @@ class SilentInstaller {
 
   // Check if system has podman installed and get its path
   async checkSystemPodman() {
-    // Common podman locations on macOS
-    const podmanPaths = [
+    // Common podman locations
+    const podmanPaths = this.platform === 'win32' ? [
+      'C:\\Program Files\\RedHat\\Podman\\podman.exe',  // Podman Desktop Windows
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Podman', 'podman.exe'),
+      'podman'                          // In PATH
+    ] : [
       '/opt/homebrew/bin/podman',      // Homebrew ARM64
       '/usr/local/bin/podman',          // Homebrew Intel
       '/opt/podman/bin/podman',         // Podman Desktop
@@ -176,12 +180,36 @@ class SilentInstaller {
     return false;
   }
 
-  // Extract bundled Podman
+  // Extract bundled Podman or prompt for installation
   async extractBundledPodman() {
     const bundledPodmanTar = path.join(this.bundledPath, `podman-${this.platform}.tar.gz`);
     
     if (!fs.existsSync(bundledPodmanTar)) {
-      throw new Error(`Bundled Podman not found for ${this.platform}`);
+      // No bundled Podman - guide user to install
+      if (this.platform === 'win32') {
+        throw new Error(
+          'Podman is required but not installed.\n\n' +
+          'Please install Podman Desktop from:\n' +
+          'https://podman-desktop.io/downloads\n\n' +
+          'After installation, restart this app.'
+        );
+      } else if (this.platform === 'darwin') {
+        throw new Error(
+          'Podman is required but not installed.\n\n' +
+          'Please install Podman using Homebrew:\n' +
+          'brew install podman\n\n' +
+          'Or install Podman Desktop from:\n' +
+          'https://podman-desktop.io/downloads\n\n' +
+          'After installation, restart this app.'
+        );
+      } else {
+        throw new Error(
+          'Podman is required but not installed.\n\n' +
+          'Please install Podman:\n' +
+          'sudo apt install podman\n\n' +
+          'After installation, restart this app.'
+        );
+      }
     }
 
     // Create extraction directory
