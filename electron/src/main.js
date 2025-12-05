@@ -1,12 +1,14 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, ipcMain } = require('electron');
+
+// Linux sandbox fix - MUST be before any other app calls
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+
 const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-
-// Linux sandbox fix
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('no-sandbox');
-}
 
 // Defer installer require until needed
 let SilentInstaller = null;

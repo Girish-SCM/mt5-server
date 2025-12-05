@@ -58,6 +58,16 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: Rename DMG with architecture
+        working-directory: electron/dist
+        run: |
+          for f in *.dmg; do
+            if [[ ! "$f" =~ -arm64\.dmg$ ]]; then
+              mv "$f" "${f%.dmg}-arm64.dmg"
+            fi
+          done
+          ls -la *.dmg
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -96,11 +106,21 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: Rename DMG with architecture
+        working-directory: electron/dist
+        run: |
+          for f in *.dmg; do
+            if [[ ! "$f" =~ -x64\.dmg$ ]]; then
+              mv "$f" "${f%.dmg}-x64.dmg"
+            fi
+          done
+          ls -la *.dmg
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: MT5-Server-macOS-x64
-          path: electron/dist/*.dmg
+          path: electron/dist/*-x64.dmg
           if-no-files-found: warn
 
   build-windows:
