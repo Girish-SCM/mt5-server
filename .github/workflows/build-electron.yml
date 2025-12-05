@@ -1,0 +1,210 @@
+name: Build Electron App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'electron/**'
+      - '.github/workflows/build-electron.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'electron/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - mac-arm64
+          - mac-x64
+          - windows
+          - linux
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-14  # Apple Silicon runner
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'mac-arm64' || github.event.inputs.platform == '' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Download bundled resources
+        working-directory: electron
+        run: |
+          mkdir -p bundled
+          # Download pre-built container image for ARM64
+          echo "Downloading ARM64 container image..."
+          # Note: This requires the container image to be available
+          # For now, create placeholder - actual image should be downloaded from release
+          if [ ! -f bundled/mt5-server.tar ]; then
+            echo "WARNING: bundled/mt5-server.tar not found"
+            echo "Please ensure the container image is available before building"
+          fi
+
+      - name: Build Electron app (macOS ARM64)
+        working-directory: electron
+        run: npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false  # Skip code signing for now
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MT5-Server-macOS-arm64
+          path: electron/dist/*.dmg
+          if-no-files-found: warn
+
+  build-mac-x64:
+    runs-on: macos-13  # Intel runner
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'mac-x64' || github.event.inputs.platform == '' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Download bundled resources
+        working-directory: electron
+        run: |
+          mkdir -p bundled
+          echo "Downloading x86 container image..."
+          if [ ! -f bundled/mt5-server.tar ]; then
+            echo "WARNING: bundled/mt5-server.tar not found"
+          fi
+
+      - name: Build Electron app (macOS x64)
+        working-directory: electron
+        run: |
+          # Modify package.json for x64 build
+          npm run build:mac -- --arch=x64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MT5-Server-macOS-x64
+          path: electron/dist/*.dmg
+          if-no-files-found: warn
+
+  build-windows:
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Build Electron app (Windows)
+        working-directory: electron
+        run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MT5-Server-Windows
+          path: electron/dist/*.exe
+          if-no-files-found: warn
+
+  build-linux:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Build Electron app (Linux)
+        working-directory: electron
+        run: npm run build:linux
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MT5-Server-Linux
+          path: |
+            electron/dist/*.AppImage
+            electron/dist/*.deb
+          if-no-files-found: warn
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-mac-arm64, build-mac-x64, build-windows, build-linux]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: MT5 Server v${{ github.run_number }}
+          draft: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
