@@ -3,6 +3,11 @@ const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Linux sandbox fix
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
 // Defer installer require until needed
 let SilentInstaller = null;
 
