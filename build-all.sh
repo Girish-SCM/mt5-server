@@ -218,7 +218,39 @@ eval $ELECTRON_CMD
 cd ..
 
 # ============================================
-# STEP 5: Summary
+# STEP 5: Code Sign (macOS only)
+# ============================================
+if [[ "$PLATFORM" == mac-* ]]; then
+    print_status "🔏 STEP 5: Code signing app for distribution..."
+    echo ""
+    
+    # Find the .app bundle
+    if [ "$PLATFORM" = "mac-arm64" ]; then
+        APP_PATH="electron/dist/mac-arm64/MT5 Server.app"
+    else
+        APP_PATH="electron/dist/mac/MT5 Server.app"
+    fi
+    
+    if [ -d "$APP_PATH" ]; then
+        print_status "Signing: $APP_PATH"
+        codesign --force --deep --sign - "$APP_PATH"
+        print_success "App signed (ad-hoc)"
+        
+        # Create signed ZIP for distribution
+        print_status "Creating signed ZIP for distribution..."
+        cd "$(dirname "$APP_PATH")"
+        zip -r "MT5 Server-signed.zip" "MT5 Server.app"
+        cd "$SCRIPT_DIR"
+        print_success "Created: $(dirname "$APP_PATH")/MT5 Server-signed.zip"
+    else
+        print_warning "App bundle not found at: $APP_PATH"
+    fi
+else
+    print_status "⏭️ STEP 5: Skipping code signing (not macOS)"
+fi
+
+# ============================================
+# STEP 6: Summary
 # ============================================
 echo ""
 echo "=========================================="
@@ -229,12 +261,19 @@ print_success "Electron app: electron/dist/"
 echo ""
 
 print_status "Built artifacts:"
-ls -lh electron/dist/ 2>/dev/null | grep -E '\.(dmg|exe|AppImage|deb)$' || echo "  (check electron/dist/ for outputs)"
+ls -lh electron/dist/ 2>/dev/null | grep -E '\.(dmg|exe|AppImage|deb|zip)$' || echo "  (check electron/dist/ for outputs)"
 
 echo ""
 print_status "To test the Electron app:"
 if [[ "$PLATFORM" == mac-* ]]; then
     echo "  open electron/dist/*.dmg"
+    echo ""
+    print_status "For distribution to other Macs:"
+    echo "  Share the signed ZIP file: electron/dist/mac*/MT5 Server-signed.zip"
+    echo ""
+    print_warning "On the target Mac, run after extracting:"
+    echo "  xattr -cr \"MT5 Server.app\""
+    echo "  open \"MT5 Server.app\""
 elif [ "$PLATFORM" = "linux" ]; then
     echo "  ./electron/dist/*.AppImage"
 fi
