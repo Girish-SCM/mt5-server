@@ -242,7 +242,7 @@ class SilentInstaller {
     if (!machineExists) {
       // Initialize machine with reasonable defaults
       await this.runCommand(
-        `${this.podmanBin} machine init --cpus 2 --memory 4096 --disk-size 20`,
+        `${this.podmanBin} machine init --cpus 2 --memory 4096 --disk-size 20 --rosetta=false`,
         { timeout: 300000 } // 5 min timeout for download
       );
     }
