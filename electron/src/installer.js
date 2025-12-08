@@ -278,6 +278,36 @@ class SilentInstaller {
     await this.runCommand(`${this.podmanBin} load -i "${this.imageTarPath}"`, { timeout: 600000 }); // 10 min
   }
 
+
+  // Ensure Podman machine is running (call on every app start)
+  async ensureMachineRunning() {
+    if (this.platform !== 'darwin' && this.platform !== 'win32') {
+      return; // Linux doesn't need machine
+    }
+    
+    this.init();
+    await this.setupPodman();
+    
+    // Check if machine exists
+    const machineExists = await this.runCommand(`${this.podmanBin} machine list --format "{{.Name}}"`)
+      .then(output => output.includes('podman-machine-default'))
+      .catch(() => false);
+    
+    if (!machineExists) {
+      await this.initPodmanMachine();
+      return;
+    }
+    
+    // Start machine if not running
+    const machineRunning = await this.runCommand(`${this.podmanBin} machine list --format "{{.Running}}"`)
+      .then(output => output.includes('true'))
+      .catch(() => false);
+    
+    if (!machineRunning) {
+      await this.runCommand(`${this.podmanBin} machine start`, { timeout: 120000 });
+    }
+  }
+
   // Verify everything is working
   async verifyInstallation() {
     // Check podman works

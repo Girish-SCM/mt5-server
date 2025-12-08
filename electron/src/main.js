@@ -369,7 +369,15 @@ app.whenReady().then(async () => {
       }
     };
     
-    sendStatus('verify', 'Checking container status...', 20);
+    // Ensure Podman machine is running (may have been stopped/deleted)
+    sendStatus('machine', 'Starting Podman machine...', 10);
+    try {
+      await installer.ensureMachineRunning();
+    } catch (err) {
+      console.error('Failed to start Podman machine:', err);
+    }
+    
+    sendStatus('verify', 'Checking container status...', 30);
     await checkContainerStatus();
     
     if (!isContainerRunning) {
