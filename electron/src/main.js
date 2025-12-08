@@ -377,7 +377,15 @@ app.whenReady().then(async () => {
       console.error('Failed to start Podman machine:', err);
     }
     
-    sendStatus('verify', 'Checking container status...', 30);
+    // Ensure image is loaded
+    sendStatus('image', 'Loading container image...', 20);
+    try {
+      await installer.ensureImageLoaded();
+    } catch (err) {
+      console.error('Failed to load image:', err);
+    }
+    
+    sendStatus('verify', 'Checking container status...', 40);
     await checkContainerStatus();
     
     if (!isContainerRunning) {

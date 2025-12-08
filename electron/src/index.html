@@ -220,7 +220,13 @@
 
   <script>
     function openVNC() {
-      window.location.href = 'http://localhost:6081/vnc.html?autoconnect=true&password=mt5vnc';
+      // Only open if server is running
+      const statusText = document.getElementById('statusText').textContent;
+      if (statusText === 'Server Running') {
+        window.location.href = 'http://localhost:6081/vnc.html?autoconnect=true&password=mt5vnc';
+      } else {
+        alert('Please start the server first using the "Start Server" button or system tray menu.');
+      }
     }
 
     function startServer() {

@@ -308,6 +308,29 @@ class SilentInstaller {
     }
   }
 
+
+  // Ensure container image is loaded (call on every app start)
+  async ensureImageLoaded() {
+    this.init();
+    await this.setupPodman();
+    
+    // Check if image already loaded
+    const imageExists = await this.runCommand(`${this.podmanBin} images --format "{{.Repository}}:{{.Tag}}"`)
+      .then(output => output.includes(this.imageName))
+      .catch(() => false);
+    
+    if (imageExists) {
+      return;
+    }
+    
+    // Load image from bundled tar
+    if (!fs.existsSync(this.imageTarPath)) {
+      throw new Error('Bundled container image not found.');
+    }
+    
+    await this.runCommand(`${this.podmanBin} load -i "${this.imageTarPath}"`, { timeout: 600000 });
+  }
+
   // Verify everything is working
   async verifyInstallation() {
     // Check podman works
